@@ -2,6 +2,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -26,6 +27,7 @@ const envDir = "AGENT_NOTES_DIR"
 
 // Env is the process environment Run operates in.
 type Env struct {
+	Context        context.Context // cancels long-running commands such as mcp
 	Stdin          io.Reader
 	Stdout, Stderr io.Writer
 	Cwd            string
@@ -51,6 +53,7 @@ var commands = []command{
 	deleteCmd,
 	importMemoryCmd,
 	instructionsCmd,
+	mcpCmd,
 }
 
 func lookup(name string) (command, bool) {
@@ -119,6 +122,9 @@ type runner struct {
 
 // Run executes the command line args (without the program name) and returns the exit code.
 func Run(args []string, env Env) int {
+	if env.Context == nil {
+		env.Context = context.Background()
+	}
 	if env.Stdin == nil {
 		env.Stdin = strings.NewReader("")
 	}
