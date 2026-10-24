@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/stormaaja/agent-notes/internal/note"
@@ -152,4 +153,106 @@ func runFind(r *runner, name string, args []string) error {
 	}
 	results := search.Search(notes, search.Query{Tags: tags, Terms: terms})
 	return r.printResults(s, results, name == "search", *full)
+}
+
+var updateCmd = command{
+	name:    "update",
+	usage:   "<id> [--title T] [--description D] [--tags a,b] [--add-tag t] [--remove-tag t] [--body TEXT | --body - | --body-file PATH]",
+	summary: "change only the given fields of a note",
+	help: `Flags:
+  --title TITLE        new title; the id stays the same
+  --description TEXT   new description ("" clears it)
+  --tags a,b           replace all tags ("" clears them)
+  --add-tag t          add tags; repeatable or comma-separated
+  --remove-tag t       remove tags; repeatable or comma-separated
+  --body TEXT          new body; "-" reads it from stdin
+  --body-file PATH     read the new body from a file
+`,
+	run: runUpdate,
+}
+
+func runUpdate(r *runner, args []string) error {
+	fs := r.flagSet("update")
+	var title, desc string
+	var tags, addTags, removeTags listFlag
+	var body bodyFlags
+	fs.StringVar(&title, "title", "", "")
+	fs.StringVar(&desc, "description", "", "")
+	fs.Var(&tags, "tags", "")
+	fs.Var(&addTags, "add-tag", "")
+	fs.Var(&removeTags, "remove-tag", "")
+	body.register(fs)
+	pos, err := r.parseN(fs, args, "id")
+	if err != nil {
+		return err
+	}
+	set := setFlags(fs)
+	delete(set, "dir")
+	delete(set, "json")
+	if len(set) == 0 {
+		return usagef("update", "nothing to update; give at least one field flag")
+	}
+	newBody, bodySet, err := r.readBody(fs, body)
+	if err != nil {
+		return err
+	}
+	s, err := r.store()
+	if err != nil {
+		return err
+	}
+	n, err := s.Update(pos[0], func(n *note.Note) error {
+		if set["title"] {
+			n.Title = title
+		}
+		if set["description"] {
+			n.Description = desc
+		}
+		if set["tags"] {
+			n.Tags = tags
+		}
+		n.Tags = append(n.Tags, addTags...)
+		remove := note.NormalizeTags(removeTags)
+		n.Tags = slices.DeleteFunc(note.NormalizeTags(n.Tags), func(t string) bool {
+			_, found := slices.BinarySearch(remove, t)
+			return found
+		})
+		if bodySet {
+			n.Body = newBody
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	return r.printSaved(s, "updated", n)
+}
+
+var deleteCmd = command{
+	name:    "delete",
+	usage:   "<id>",
+	summary: "delete a note",
+	run:     runDelete,
+}
+
+func runDelete(r *runner, args []string) error {
+	pos, err := r.parseN(r.flagSet("delete"), args, "id")
+	if err != nil {
+		return err
+	}
+	s, err := r.store()
+	if err != nil {
+		return err
+	}
+	id := pos[0]
+	if err := s.Delete(id); err != nil {
+		return err
+	}
+	if r.json {
+		return r.printJSON(struct {
+			ID      string `json:"id"`
+			Deleted bool   `json:"deleted"`
+		}{id, true})
+	}
+	_, err = fmt.Fprintf(r.env.Stdout, "deleted %s\n", id)
+	return err
 }

@@ -108,9 +108,13 @@ func TestShowJSONShape(t *testing.T) {
 func TestAddBodyFromStdin(t *testing.T) {
 	e := newEnv(t)
 	e.stdin = "line one\nline two\n"
-	e.mustRun("add", "--title", "Piped", "--body", "-")
-	if got := e.showJSON("piped").Body; got != "line one\nline two" {
-		t.Errorf("body = %q", got)
+	var added jsonNote
+	decodeJSON(t, e.mustRun("add", "--title", "Piped", "--body", "-", "--json"), &added)
+	if added.Body != "line one\nline two" {
+		t.Errorf("add --json body = %q", added.Body)
+	}
+	if got := e.showJSON("piped").Body; got != added.Body {
+		t.Errorf("stored body = %q, want %q", got, added.Body)
 	}
 }
 

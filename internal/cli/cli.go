@@ -47,6 +47,8 @@ var commands = []command{
 	showCmd,
 	listCmd,
 	searchCmd,
+	updateCmd,
+	deleteCmd,
 }
 
 func lookup(name string) (command, bool) {

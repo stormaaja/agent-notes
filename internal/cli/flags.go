@@ -36,24 +36,26 @@ func (b *bodyFlags) register(fs *flag.FlagSet) {
 }
 
 // readBody returns the body selected by --body (with "-" reading stdin) or
-// --body-file, and whether either flag was given.
+// --body-file without surrounding blank lines, and whether either flag was given.
 func (r *runner) readBody(fs *flag.FlagSet, b bodyFlags) (string, bool, error) {
 	set := setFlags(fs)
+	var data []byte
+	var err error
 	switch {
 	case set["body"] && set["body-file"]:
 		return "", false, usagef(fs.Name(), "--body and --body-file are mutually exclusive")
 	case set["body"] && b.text == "-":
-		data, err := io.ReadAll(r.env.Stdin)
-		return string(data), true, err
+		data, err = io.ReadAll(r.env.Stdin)
 	case set["body"]:
-		return b.text, true, nil
+		data = []byte(b.text)
 	case set["body-file"]:
 		path := b.file
 		if !filepath.IsAbs(path) {
 			path = filepath.Join(r.env.Cwd, path)
 		}
-		data, err := os.ReadFile(path)
-		return string(data), true, err
+		data, err = os.ReadFile(path)
+	default:
+		return "", false, nil
 	}
-	return "", false, nil
+	return strings.Trim(string(data), "\n"), true, err
 }
