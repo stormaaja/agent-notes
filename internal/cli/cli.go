@@ -49,6 +49,7 @@ var commands = []command{
 	searchCmd,
 	updateCmd,
 	deleteCmd,
+	importMemoryCmd,
 	instructionsCmd,
 }
 
