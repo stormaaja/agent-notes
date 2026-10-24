@@ -83,7 +83,7 @@ func (c command) usageLine() string {
 }
 
 func (c command) fullHelp() string {
-	s := "Usage: " + c.usageLine() + "\n\n" + c.summary + ".\n"
+	s := "Usage: " + c.usageLine() + "\n\n" + strings.ToUpper(c.summary[:1]) + c.summary[1:] + ".\n"
 	if c.help != "" {
 		s += "\n" + c.help
 	}
@@ -101,6 +101,8 @@ func (e *usageError) Error() string { return e.msg }
 func usagef(cmd, format string, a ...any) error {
 	return &usageError{cmd: cmd, msg: fmt.Sprintf(format, a...)}
 }
+
+var errNoCommand = &usageError{msg: "missing command"}
 
 // errHelp is returned when help was requested for a command.
 type errHelp struct{ cmd string }
@@ -135,7 +137,7 @@ func (r *runner) dispatch(args []string) error {
 	}
 	args = fs.Args()
 	if len(args) == 0 {
-		return usagef("", "missing command")
+		return errNoCommand
 	}
 	name, args := args[0], args[1:]
 	if name == "help" {
@@ -181,8 +183,10 @@ func (r *runner) exit(err error) int {
 		fmt.Fprintf(r.env.Stderr, "error: %s\n", uerr.msg)
 		if c, ok := lookup(uerr.cmd); ok {
 			fmt.Fprintf(r.env.Stderr, "Usage: %s\nRun 'agent-notes help %s' for details.\n", c.usageLine(), c.name)
-		} else {
+		} else if errors.Is(err, errNoCommand) {
 			fmt.Fprint(r.env.Stderr, usage())
+		} else {
+			fmt.Fprintln(r.env.Stderr, "Run 'agent-notes help' for usage.")
 		}
 		return exitUsage
 	case errors.Is(err, store.ErrEmptyTitle):

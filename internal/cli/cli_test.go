@@ -169,3 +169,18 @@ func decodeJSON(t *testing.T, s string, v any) {
 		t.Fatalf("decode %q: %v", s, err)
 	}
 }
+
+func TestUsageErrorHints(t *testing.T) {
+	e := newEnv(t)
+	_, errOut, _ := e.run("bogus")
+	if strings.Contains(errOut, "Commands:") || !strings.Contains(errOut, "agent-notes help") {
+		t.Errorf("unknown command stderr = %q, want a short hint", errOut)
+	}
+	_, errOut, _ = e.run()
+	if !strings.Contains(errOut, "Commands:") {
+		t.Errorf("missing command stderr = %q, want full usage", errOut)
+	}
+	if out := e.mustRun("help", "init"); !strings.Contains(out, "\n\nCreate the notes directory") {
+		t.Errorf("command help = %q, want capitalized summary", out)
+	}
+}
