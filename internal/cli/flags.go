@@ -36,7 +36,7 @@ func (b *bodyFlags) register(fs *flag.FlagSet) {
 }
 
 // readBody returns the body selected by --body (with "-" reading stdin) or
-// --body-file without surrounding blank lines, and whether either flag was given.
+// --body-file, and whether either flag was given.
 func (r *runner) readBody(fs *flag.FlagSet, b bodyFlags) (string, bool, error) {
 	set := setFlags(fs)
 	var data []byte
@@ -57,5 +57,5 @@ func (r *runner) readBody(fs *flag.FlagSet, b bodyFlags) (string, bool, error) {
 	default:
 		return "", false, nil
 	}
-	return strings.Trim(string(data), "\n"), true, err
+	return string(data), true, err
 }

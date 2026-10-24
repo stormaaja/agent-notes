@@ -383,3 +383,21 @@ func TestPath(t *testing.T) {
 		t.Errorf("Path = %q, want %q", got, want)
 	}
 }
+
+func TestCreateAndUpdateReturnStoredForm(t *testing.T) {
+	s, _ := newStore(t)
+	created := mustCreate(t, s, note.Note{Title: "Trim", Body: "\n\nbody\n\n"})
+	if got, err := s.Get(created.ID); err != nil || !reflect.DeepEqual(created, got) {
+		t.Errorf("Create = %#v, Get = %#v (err %v)", created, got, err)
+	}
+	updated, err := s.Update(created.ID, func(n *note.Note) error {
+		n.Body = "\nnew\n"
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, err := s.Get(created.ID); err != nil || !reflect.DeepEqual(updated, got) {
+		t.Errorf("Update = %#v, Get = %#v (err %v)", updated, got, err)
+	}
+}

@@ -54,7 +54,8 @@ func validateID(id string) error {
 	return nil
 }
 
-// Create stores a new note with normalized tags and Created = Updated = now.
+// Create stores a new note with normalized tags, the body trimmed of
+// surrounding newlines and Created = Updated = now.
 // Without an ID the id is the slug of the title, suffixed -2, -3, … until
 // unused. A caller-provided ID is used as is and fails with ErrExists when taken.
 func (s *Store) Create(n note.Note) (note.Note, error) {
@@ -69,6 +70,7 @@ func (s *Store) Create(n note.Note) (note.Note, error) {
 		}
 	}
 	n.Tags = note.NormalizeTags(n.Tags)
+	n.Body = strings.Trim(n.Body, "\n")
 	n.Created = s.clock()
 	n.Updated = n.Created
 	if err := os.MkdirAll(s.dir, 0o755); err != nil {
@@ -145,7 +147,8 @@ func (s *Store) List() (notes []note.Note, warnings []error, err error) {
 
 // Update applies fn to the stored note and saves the result. ID and Created
 // are kept, Updated is set to now, the title is trimmed and must stay
-// non-empty, and tags are normalized. An error from fn aborts the update.
+// non-empty, tags are normalized and the body is trimmed of surrounding
+// newlines. The result equals what Get returns afterwards. An error from fn aborts the update.
 func (s *Store) Update(id string, fn func(*note.Note) error) (note.Note, error) {
 	old, err := s.Get(id)
 	if err != nil {
@@ -162,6 +165,7 @@ func (s *Store) Update(id string, fn func(*note.Note) error) (note.Note, error) 
 	}
 	n.ID, n.Created = old.ID, old.Created
 	n.Tags = note.NormalizeTags(n.Tags)
+	n.Body = strings.Trim(n.Body, "\n")
 	n.Updated = s.clock()
 	if err := s.write(n, true); err != nil {
 		return note.Note{}, err
