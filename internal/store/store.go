@@ -142,6 +142,44 @@ func (s *Store) List() (notes []note.Note, warnings []error, err error) {
 	return notes, warnings, nil
 }
 
+// Update applies fn to the stored note and saves the result. ID and Created
+// are kept, Updated is set to now, the title is trimmed and must stay
+// non-empty, and tags are normalized. An error from fn aborts the update.
+func (s *Store) Update(id string, fn func(*note.Note) error) (note.Note, error) {
+	old, err := s.Get(id)
+	if err != nil {
+		return note.Note{}, err
+	}
+	n := old
+	n.Tags = slices.Clone(old.Tags)
+	if err := fn(&n); err != nil {
+		return note.Note{}, err
+	}
+	n.Title = strings.TrimSpace(n.Title)
+	if n.Title == "" {
+		return note.Note{}, ErrEmptyTitle
+	}
+	n.ID, n.Created = old.ID, old.Created
+	n.Tags = note.NormalizeTags(n.Tags)
+	n.Updated = s.clock()
+	if err := s.write(n, true); err != nil {
+		return note.Note{}, err
+	}
+	return n, nil
+}
+
+// Delete removes the note with the given id.
+func (s *Store) Delete(id string) error {
+	if err := validateID(id); err != nil {
+		return err
+	}
+	err := os.Remove(s.path(id))
+	if errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("%w: %q", ErrNotFound, id)
+	}
+	return err
+}
+
 func (s *Store) read(path string) (note.Note, error) {
 	data, err := os.ReadFile(path)
 	if errors.Is(err, fs.ErrNotExist) {

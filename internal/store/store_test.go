@@ -280,3 +280,98 @@ func TestListSkipsBadFiles(t *testing.T) {
 		}
 	}
 }
+
+func TestUpdate(t *testing.T) {
+	s, dir := newStore(t)
+	created := mustCreate(t, s, note.Note{Title: "Original", Tags: []string{"a"}, Body: "old"})
+	got, err := s.Update("original", func(n *note.Note) error {
+		n.ID = "hijack"
+		n.Created = time.Time{}
+		n.Title = " Renamed "
+		n.Description = "desc"
+		n.Tags = append(n.Tags, "B", "a")
+		n.Body = "new"
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := note.Note{
+		ID:          "original",
+		Title:       "Renamed",
+		Description: "desc",
+		Tags:        []string{"a", "b"},
+		Created:     created.Created,
+		Updated:     t0.Add(time.Minute),
+		Body:        "new",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("Update =\n%#v\nwant\n%#v", got, want)
+	}
+	if onDisk, err := s.Get("original"); err != nil || !reflect.DeepEqual(onDisk, want) {
+		t.Errorf("Get after update = %#v, %v", onDisk, err)
+	}
+	assertDirFiles(t, dir, "original.md")
+}
+
+func TestUpdateRejectsEmptyTitle(t *testing.T) {
+	s, _ := newStore(t)
+	created := mustCreate(t, s, note.Note{Title: "Keep"})
+	_, err := s.Update("keep", func(n *note.Note) error { n.Title = " "; return nil })
+	if !errors.Is(err, ErrEmptyTitle) {
+		t.Errorf("err = %v, want ErrEmptyTitle", err)
+	}
+	if got, _ := s.Get("keep"); !reflect.DeepEqual(got, created) {
+		t.Errorf("note changed: %#v", got)
+	}
+}
+
+func TestUpdateFnError(t *testing.T) {
+	s, _ := newStore(t)
+	created := mustCreate(t, s, note.Note{Title: "Keep"})
+	boom := errors.New("boom")
+	_, err := s.Update("keep", func(n *note.Note) error { n.Body = "changed"; return boom })
+	if !errors.Is(err, boom) {
+		t.Errorf("err = %v, want boom", err)
+	}
+	if got, _ := s.Get("keep"); !reflect.DeepEqual(got, created) {
+		t.Errorf("note changed: %#v", got)
+	}
+}
+
+func TestUpdateMissingAndInvalid(t *testing.T) {
+	s, dir := newStore(t)
+	called := false
+	fn := func(*note.Note) error { called = true; return nil }
+	if _, err := s.Update("missing", fn); !errors.Is(err, ErrNotFound) {
+		t.Errorf("missing err = %v, want ErrNotFound", err)
+	}
+	if _, err := s.Update("../x", fn); !errors.Is(err, ErrInvalidID) {
+		t.Errorf("invalid err = %v, want ErrInvalidID", err)
+	}
+	if called {
+		t.Error("fn called for missing note")
+	}
+	if _, err := os.Stat(dir); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("dir created by failed update: %v", err)
+	}
+}
+
+func TestDelete(t *testing.T) {
+	s, dir := newStore(t)
+	mustCreate(t, s, note.Note{Title: "Gone"})
+	mustCreate(t, s, note.Note{Title: "Stays"})
+	if err := s.Delete("gone"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Get("gone"); !errors.Is(err, ErrNotFound) {
+		t.Errorf("Get after delete err = %v, want ErrNotFound", err)
+	}
+	assertDirFiles(t, dir, "stays.md")
+	if err := s.Delete("gone"); !errors.Is(err, ErrNotFound) {
+		t.Errorf("second delete err = %v, want ErrNotFound", err)
+	}
+	if err := s.Delete("../stays"); !errors.Is(err, ErrInvalidID) {
+		t.Errorf("invalid delete err = %v, want ErrInvalidID", err)
+	}
+}
