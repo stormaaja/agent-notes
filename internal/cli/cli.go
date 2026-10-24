@@ -49,6 +49,7 @@ var commands = []command{
 	searchCmd,
 	updateCmd,
 	deleteCmd,
+	instructionsCmd,
 }
 
 func lookup(name string) (command, bool) {
@@ -70,9 +71,9 @@ func usage() string {
 	var b strings.Builder
 	b.WriteString("Usage: agent-notes [--dir PATH] [--json] <command> [flags] [args]\n\nCommands:\n")
 	for _, c := range commands {
-		fmt.Fprintf(&b, "  %-8s %s\n", c.name, c.summary)
+		fmt.Fprintf(&b, "  %-14s %s\n", c.name, c.summary)
 	}
-	fmt.Fprintf(&b, "  %-8s %s\n", "help", "show help for a command")
+	fmt.Fprintf(&b, "  %-14s %s\n", "help", "show help for a command")
 	b.WriteString("\n" + globalHelp)
 	b.WriteString("\nRun 'agent-notes help <command>' for command details.\n")
 	return b.String()
