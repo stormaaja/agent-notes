@@ -212,3 +212,71 @@ func TestInvalidIDs(t *testing.T) {
 		}
 	}
 }
+
+func TestListMissingDir(t *testing.T) {
+	s, _ := newStore(t)
+	notes, warnings, err := s.List()
+	if err != nil || len(notes) != 0 || len(warnings) != 0 {
+		t.Errorf("List = %v, %v, %v; want empty", notes, warnings, err)
+	}
+}
+
+func TestListOrder(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), ".notes")
+	now := t0
+	s := New(dir, func() time.Time { return now })
+	mustCreate(t, s, note.Note{Title: "Old"})
+	now = t0.Add(time.Hour)
+	mustCreate(t, s, note.Note{Title: "Beta"})
+	mustCreate(t, s, note.Note{Title: "Alpha"})
+	now = t0.Add(30 * time.Minute)
+	mustCreate(t, s, note.Note{Title: "Middle"})
+
+	notes, warnings, err := s.List()
+	if err != nil || len(warnings) != 0 {
+		t.Fatalf("List: %v, warnings %v", err, warnings)
+	}
+	var ids []string
+	for _, n := range notes {
+		ids = append(ids, n.ID)
+	}
+	want := []string{"alpha", "beta", "middle", "old"}
+	if !reflect.DeepEqual(ids, want) {
+		t.Errorf("ids = %q, want %q", ids, want)
+	}
+}
+
+func TestListSkipsBadFiles(t *testing.T) {
+	s, dir := newStore(t)
+	good := mustCreate(t, s, note.Note{Title: "Good"})
+	files := map[string]string{
+		"broken.md":       "no frontmatter",
+		"Bad Name.md":     "---\nid: bad-name\n---\n",
+		"notes.txt":       "not markdown",
+		".tmp-123.md":     "---\nid: leftover\n---\n",
+		"sub/nested.md":   "---\nid: nested\n---\n",
+		"unterminated.md": "---\nid: x\n",
+	}
+	for name, data := range files {
+		path := filepath.Join(dir, name)
+		mkdirs(t, filepath.Dir(path))
+		if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	notes, warnings, err := s.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(notes, []note.Note{good}) {
+		t.Errorf("notes = %#v, want only %q", notes, good.ID)
+	}
+	if len(warnings) != 3 {
+		t.Fatalf("warnings = %v, want 3", warnings)
+	}
+	for i, name := range []string{"Bad Name.md", "broken.md", "unterminated.md"} {
+		if !strings.Contains(warnings[i].Error(), name) {
+			t.Errorf("warning %d = %q, want mention of %s", i, warnings[i], name)
+		}
+	}
+}

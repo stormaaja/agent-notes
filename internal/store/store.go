@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -100,6 +101,45 @@ func (s *Store) Get(id string) (note.Note, error) {
 		return note.Note{}, err
 	}
 	return s.read(s.path(id))
+}
+
+// List returns all notes, most recently updated first, then by id. A missing
+// directory yields no notes. Files that cannot be read or parsed, or whose
+// name is not a valid id, are skipped and reported as warnings. Hidden files
+// and subdirectories are ignored.
+func (s *Store) List() (notes []note.Note, warnings []error, err error) {
+	entries, err := os.ReadDir(s.dir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return []note.Note{}, nil, nil
+	}
+	if err != nil {
+		return nil, nil, err
+	}
+	notes = []note.Note{}
+	for _, e := range entries {
+		name := e.Name()
+		if e.IsDir() || strings.HasPrefix(name, ".") || filepath.Ext(name) != ext {
+			continue
+		}
+		path := filepath.Join(s.dir, name)
+		if err := validateID(strings.TrimSuffix(name, ext)); err != nil {
+			warnings = append(warnings, fmt.Errorf("%s: %w", path, err))
+			continue
+		}
+		n, err := s.read(path)
+		if err != nil {
+			warnings = append(warnings, err)
+			continue
+		}
+		notes = append(notes, n)
+	}
+	slices.SortFunc(notes, func(a, b note.Note) int {
+		if c := b.Updated.Compare(a.Updated); c != 0 {
+			return c
+		}
+		return strings.Compare(a.ID, b.ID)
+	})
+	return notes, warnings, nil
 }
 
 func (s *Store) read(path string) (note.Note, error) {
