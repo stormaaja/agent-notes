@@ -375,3 +375,11 @@ func TestDelete(t *testing.T) {
 		t.Errorf("invalid delete err = %v, want ErrInvalidID", err)
 	}
 }
+
+func TestPath(t *testing.T) {
+	s, dir := newStore(t)
+	n := mustCreate(t, s, note.Note{Title: "Path me"})
+	if got, want := s.Path(n.ID), filepath.Join(dir, "path-me.md"); got != want {
+		t.Errorf("Path = %q, want %q", got, want)
+	}
+}

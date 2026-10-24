@@ -43,6 +43,8 @@ type command struct {
 
 var commands = []command{
 	initCmd,
+	addCmd,
+	showCmd,
 }
 
 func lookup(name string) (command, bool) {

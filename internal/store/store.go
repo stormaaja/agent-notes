@@ -44,7 +44,8 @@ func New(dir string, now func() time.Time) *Store {
 
 func (s *Store) clock() time.Time { return s.now().UTC().Truncate(time.Second) }
 
-func (s *Store) path(id string) string { return filepath.Join(s.dir, id+ext) }
+// Path returns the file path of the note with the given id.
+func (s *Store) Path(id string) string { return filepath.Join(s.dir, id+ext) }
 
 func validateID(id string) error {
 	if !idPattern.MatchString(id) {
@@ -100,7 +101,7 @@ func (s *Store) Get(id string) (note.Note, error) {
 	if err := validateID(id); err != nil {
 		return note.Note{}, err
 	}
-	return s.read(s.path(id))
+	return s.read(s.Path(id))
 }
 
 // List returns all notes, most recently updated first, then by id. A missing
@@ -173,7 +174,7 @@ func (s *Store) Delete(id string) error {
 	if err := validateID(id); err != nil {
 		return err
 	}
-	err := os.Remove(s.path(id))
+	err := os.Remove(s.Path(id))
 	if errors.Is(err, fs.ErrNotExist) {
 		return fmt.Errorf("%w: %q", ErrNotFound, id)
 	}
@@ -224,7 +225,7 @@ func (s *Store) write(n note.Note, replace bool) error {
 		return err
 	}
 	if replace {
-		return os.Rename(tmp, s.path(n.ID))
+		return os.Rename(tmp, s.Path(n.ID))
 	}
-	return os.Link(tmp, s.path(n.ID))
+	return os.Link(tmp, s.Path(n.ID))
 }

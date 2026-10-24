@@ -73,7 +73,7 @@ func TestHelp(t *testing.T) {
 	for _, args := range [][]string{{"help"}, {"-h"}, {"--help"}} {
 		out, errOut, code := e.run(args...)
 		assertCode(t, args, code, 0, errOut)
-		for _, want := range []string{"Usage:", "init", "help", "--dir", "--json"} {
+		for _, want := range []string{"Usage:", "init", "add", "show", "help", "--dir", "--json"} {
 			if !strings.Contains(out, want) {
 				t.Errorf("%q: stdout missing %q:\n%s", args, want, out)
 			}
