@@ -1,0 +1,214 @@
+package store
+
+import (
+	"errors"
+	"os"
+	"path/filepath"
+	"reflect"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/stormaaja/agent-notes/internal/note"
+)
+
+var t0 = time.Date(2026, 10, 24, 9, 0, 0, 0, time.UTC)
+
+// fakeClock returns t0 plus one minute per call, with sub-second noise
+// and a non-UTC zone so truncation and normalization are exercised.
+func fakeClock() func() time.Time {
+	zone := time.FixedZone("EEST", 3*3600)
+	calls := 0
+	return func() time.Time {
+		tm := t0.Add(time.Duration(calls)*time.Minute + 500*time.Millisecond)
+		calls++
+		return tm.In(zone)
+	}
+}
+
+func newStore(t *testing.T) (*Store, string) {
+	t.Helper()
+	dir := filepath.Join(t.TempDir(), ".notes")
+	return New(dir, fakeClock()), dir
+}
+
+func mustCreate(t *testing.T, s *Store, n note.Note) note.Note {
+	t.Helper()
+	got, err := s.Create(n)
+	if err != nil {
+		t.Fatalf("Create(%q): %v", n.Title, err)
+	}
+	return got
+}
+
+func assertDirFiles(t *testing.T, dir string, want ...string) {
+	t.Helper()
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, e := range entries {
+		got = append(got, e.Name())
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("dir files = %q, want %q", got, want)
+	}
+}
+
+func TestCreate(t *testing.T) {
+	s, dir := newStore(t)
+	got := mustCreate(t, s, note.Note{
+		Title:       "  Go error wrapping ",
+		Description: "Wrap with %w",
+		Tags:        []string{"Go", " errors", "go"},
+		Body:        "body",
+	})
+	want := note.Note{
+		ID:          "go-error-wrapping",
+		Title:       "Go error wrapping",
+		Description: "Wrap with %w",
+		Tags:        []string{"errors", "go"},
+		Created:     t0,
+		Updated:     t0,
+		Body:        "body",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("Create =\n%#v\nwant\n%#v", got, want)
+	}
+
+	data, err := os.ReadFile(filepath.Join(dir, "go-error-wrapping.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	onDisk, err := note.Parse(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(onDisk, want) {
+		t.Errorf("on disk =\n%#v\nwant\n%#v", onDisk, want)
+	}
+	for path, mode := range map[string]os.FileMode{dir: 0o755 | os.ModeDir, filepath.Join(dir, "go-error-wrapping.md"): 0o644} {
+		fi, err := os.Stat(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// Allow the process umask to clear bits, but never add any.
+		if fi.Mode()&^mode != 0 {
+			t.Errorf("%s mode = %v, want at most %v", path, fi.Mode(), mode)
+		}
+	}
+	assertDirFiles(t, dir, "go-error-wrapping.md")
+}
+
+func TestCreateRequiresTitle(t *testing.T) {
+	s, dir := newStore(t)
+	for _, title := range []string{"", "   "} {
+		if _, err := s.Create(note.Note{Title: title}); !errors.Is(err, ErrEmptyTitle) {
+			t.Errorf("Create(title %q) err = %v, want ErrEmptyTitle", title, err)
+		}
+	}
+	if _, err := os.Stat(dir); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("dir created on failed Create: %v", err)
+	}
+}
+
+func TestCreateCollisionAppendsSuffix(t *testing.T) {
+	s, dir := newStore(t)
+	var ids []string
+	for range 3 {
+		ids = append(ids, mustCreate(t, s, note.Note{Title: "Same title"}).ID)
+	}
+	want := []string{"same-title", "same-title-2", "same-title-3"}
+	if !reflect.DeepEqual(ids, want) {
+		t.Errorf("ids = %q, want %q", ids, want)
+	}
+	assertDirFiles(t, dir, "same-title-2.md", "same-title-3.md", "same-title.md")
+}
+
+func TestCreateWithExplicitID(t *testing.T) {
+	s, _ := newStore(t)
+	got := mustCreate(t, s, note.Note{ID: "custom-id", Title: "Other title"})
+	if got.ID != "custom-id" {
+		t.Errorf("ID = %q, want custom-id", got.ID)
+	}
+	if _, err := s.Create(note.Note{ID: "custom-id", Title: "Again"}); !errors.Is(err, ErrExists) {
+		t.Errorf("duplicate explicit id err = %v, want ErrExists", err)
+	}
+	if _, err := s.Create(note.Note{ID: "../evil", Title: "x"}); !errors.Is(err, ErrInvalidID) {
+		t.Errorf("invalid explicit id err = %v, want ErrInvalidID", err)
+	}
+	if n, err := s.Get("custom-id"); err != nil || n.Title != "Other title" {
+		t.Errorf("original note changed: %#v, %v", n, err)
+	}
+}
+
+func TestGet(t *testing.T) {
+	s, _ := newStore(t)
+	created := mustCreate(t, s, note.Note{Title: "Hello", Tags: []string{"x"}, Body: "b"})
+	got, err := s.Get("hello")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, created) {
+		t.Errorf("Get =\n%#v\nwant\n%#v", got, created)
+	}
+}
+
+func TestGetNotFound(t *testing.T) {
+	s, _ := newStore(t)
+	if _, err := s.Get("missing"); !errors.Is(err, ErrNotFound) {
+		t.Errorf("Get on missing dir err = %v, want ErrNotFound", err)
+	}
+	mustCreate(t, s, note.Note{Title: "Other"})
+	if _, err := s.Get("missing"); !errors.Is(err, ErrNotFound) {
+		t.Errorf("Get missing err = %v, want ErrNotFound", err)
+	}
+}
+
+func TestGetUsesFileNameAsID(t *testing.T) {
+	s, dir := newStore(t)
+	mkdirs(t, dir)
+	data := "---\nid: something-else\ntitle: Hand edited\n---\n"
+	if err := os.WriteFile(filepath.Join(dir, "hand-edited.md"), []byte(data), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.Get("hand-edited")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.ID != "hand-edited" {
+		t.Errorf("ID = %q, want hand-edited", got.ID)
+	}
+}
+
+func TestGetCorruptFile(t *testing.T) {
+	s, dir := newStore(t)
+	mkdirs(t, dir)
+	if err := os.WriteFile(filepath.Join(dir, "broken.md"), []byte("no frontmatter"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := s.Get("broken")
+	if err == nil || errors.Is(err, ErrNotFound) {
+		t.Fatalf("err = %v, want parse error", err)
+	}
+	if !strings.Contains(err.Error(), "broken.md") {
+		t.Errorf("err %q does not name the file", err)
+	}
+}
+
+func TestInvalidIDs(t *testing.T) {
+	s, dir := newStore(t)
+	mkdirs(t, filepath.Dir(dir))
+	if err := os.WriteFile(filepath.Join(filepath.Dir(dir), "secret.md"), []byte("---\nid: secret\n---\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{
+		"", "../secret", "..", ".", "a/b", `a\b`, "/etc/passwd", "UPPER", "with space",
+		"-leading", "trailing-", "double--dash", "x.md", "ä",
+	} {
+		if _, err := s.Get(id); !errors.Is(err, ErrInvalidID) {
+			t.Errorf("Get(%q) err = %v, want ErrInvalidID", id, err)
+		}
+	}
+}
