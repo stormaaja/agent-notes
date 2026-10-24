@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"sync"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -22,6 +23,7 @@ const instructions = `Shared project notes from the repository's .notes/ folder.
 - Keep notes concise: clear title, one-line description, a few lowercase tags. Never store secrets, credentials, tokens or personal data.`
 
 type server struct {
+	mu    sync.Mutex
 	store *store.Store
 	log   *slog.Logger
 }
@@ -41,31 +43,40 @@ func New(st *store.Store, version string, logger *slog.Logger) *mcp.Server {
 		Name:        "notes_search",
 		Description: searchDescription,
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true, OpenWorldHint: ptr(false)},
-	}, s.search)
+	}, serialize(&s.mu, s.search))
 	mcp.AddTool(srv, &mcp.Tool{
 		Name:        "notes_get",
 		Description: "Read one shared project note in full, including its Markdown body and file path. Use the id from notes_search results.",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true, OpenWorldHint: ptr(false)},
-	}, s.get)
+	}, serialize(&s.mu, s.get))
 	mcp.AddTool(srv, &mcp.Tool{
 		Name:        "notes_add",
 		Description: addDescription,
 		Annotations: &mcp.ToolAnnotations{DestructiveHint: ptr(false), OpenWorldHint: ptr(false)},
-	}, s.add)
+	}, serialize(&s.mu, s.add))
 	mcp.AddTool(srv, &mcp.Tool{
 		Name:        "notes_update",
 		Description: updateDescription,
 		Annotations: &mcp.ToolAnnotations{IdempotentHint: true, OpenWorldHint: ptr(false)},
-	}, s.update)
+	}, serialize(&s.mu, s.update))
 	mcp.AddTool(srv, &mcp.Tool{
 		Name:        "notes_delete",
 		Description: "Delete a shared project note by id. The note file is removed from .notes/; the deletion reaches others when committed. Only delete notes that are wrong or obsolete.",
 		Annotations: &mcp.ToolAnnotations{DestructiveHint: ptr(true), IdempotentHint: true, OpenWorldHint: ptr(false)},
-	}, s.delete)
+	}, serialize(&s.mu, s.delete))
 	return srv
 }
 
 func ptr[T any](v T) *T { return &v }
+
+// serialize returns h wrapped to run only while holding mu.
+func serialize[In, Out any](mu *sync.Mutex, h mcp.ToolHandlerFor[In, Out]) mcp.ToolHandlerFor[In, Out] {
+	return func(ctx context.Context, req *mcp.CallToolRequest, in In) (*mcp.CallToolResult, Out, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		return h(ctx, req, in)
+	}
+}
 
 const searchDescription = `Search the repository's shared notes (.notes/, committed to git and shared with the team and other agents). Call this before starting a task and before adding a note, to reuse existing knowledge and avoid duplicates.
 - query: keywords separated by spaces. Every keyword must appear (case-insensitive substring) in the title, description, tags or body.

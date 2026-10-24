@@ -3,6 +3,7 @@ package mcpserver
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -354,5 +355,36 @@ func TestToolErrors(t *testing.T) {
 			f.t = t
 			f.callErr(tt.tool, tt.args, tt.want)
 		})
+	}
+}
+
+func TestConcurrentUpdatesAreSerialized(t *testing.T) {
+	f := newFixture(t)
+	n := f.create("Shared", "", "")
+	const calls = 20
+	errs := make(chan error, calls)
+	for i := range calls {
+		go func() {
+			res, err := f.session.CallTool(context.Background(), &mcp.CallToolParams{
+				Name:      "notes_update",
+				Arguments: map[string]any{"id": n.ID, "add_tags": []string{fmt.Sprintf("t%02d", i)}},
+			})
+			if err == nil && res.IsError {
+				err = fmt.Errorf("tool error: %s", text(res))
+			}
+			errs <- err
+		}()
+	}
+	for range calls {
+		if err := <-errs; err != nil {
+			t.Fatal(err)
+		}
+	}
+	stored, err := f.store.Get(n.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(stored.Tags) != calls {
+		t.Errorf("tags = %q, want %d tags; concurrent updates were lost", stored.Tags, calls)
 	}
 }
