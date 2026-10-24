@@ -1,0 +1,69 @@
+package store
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
+
+func mkdirs(t *testing.T, paths ...string) {
+	t.Helper()
+	for _, p := range paths {
+		if err := os.MkdirAll(p, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestResolveDir(t *testing.T) {
+	root := t.TempDir()
+	repo := filepath.Join(root, "repo")
+	deep := filepath.Join(repo, "a", "b")
+	mkdirs(t, deep, filepath.Join(repo, ".git"))
+
+	worktree := filepath.Join(root, "worktree")
+	wtDeep := filepath.Join(worktree, "sub")
+	mkdirs(t, wtDeep)
+	if err := os.WriteFile(filepath.Join(worktree, ".git"), []byte("gitdir: elsewhere\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	withNotes := filepath.Join(root, "withnotes")
+	withNotesDeep := filepath.Join(withNotes, "x", "y")
+	mkdirs(t, withNotesDeep, filepath.Join(withNotes, ".notes"), filepath.Join(withNotes, "x", ".git"))
+
+	notesFile := filepath.Join(root, "notesfile")
+	mkdirs(t, filepath.Join(notesFile, ".git"))
+	if err := os.WriteFile(filepath.Join(notesFile, ".notes"), nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	plain := filepath.Join(root, "plain")
+	mkdirs(t, plain)
+
+	tests := []struct {
+		name, cwd, flag, env, want string
+	}{
+		{"flag absolute", deep, "/abs/flag", "/abs/env", "/abs/flag"},
+		{"flag relative to cwd", deep, "../notes", "/abs/env", filepath.Join(repo, "a", "notes")},
+		{"env absolute", deep, "", "/abs/env", "/abs/env"},
+		{"env relative to cwd", deep, "", "envnotes", filepath.Join(deep, "envnotes")},
+		{"existing .notes beats nearer git root", withNotesDeep, "", "", filepath.Join(withNotes, ".notes")},
+		{"existing .notes in cwd", withNotes, "", "", filepath.Join(withNotes, ".notes")},
+		{".notes file is not a notes dir", notesFile, "", "", filepath.Join(notesFile, ".notes")},
+		{"git dir root", deep, "", "", filepath.Join(repo, ".notes")},
+		{"git file root (worktree)", wtDeep, "", "", filepath.Join(worktree, ".notes")},
+		{"fallback to cwd", plain, "", "", filepath.Join(plain, ".notes")},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ResolveDir(tt.cwd, tt.flag, tt.env)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != tt.want {
+				t.Errorf("ResolveDir = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
