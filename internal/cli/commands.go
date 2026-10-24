@@ -3,7 +3,6 @@ package cli
 import (
 	"fmt"
 	"os"
-	"slices"
 	"strings"
 
 	"github.com/stormaaja/agent-notes/internal/note"
@@ -210,12 +209,7 @@ func runUpdate(r *runner, args []string) error {
 		if set["tags"] {
 			n.Tags = tags
 		}
-		n.Tags = append(n.Tags, addTags...)
-		remove := note.NormalizeTags(removeTags)
-		n.Tags = slices.DeleteFunc(note.NormalizeTags(n.Tags), func(t string) bool {
-			_, found := slices.BinarySearch(remove, t)
-			return found
-		})
+		n.Tags = note.EditTags(n.Tags, addTags, removeTags)
 		if bodySet {
 			n.Body = newBody
 		}

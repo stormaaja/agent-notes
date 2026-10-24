@@ -6,39 +6,13 @@ import (
 	"time"
 
 	"github.com/stormaaja/agent-notes/internal/note"
+	"github.com/stormaaja/agent-notes/internal/notejson"
 	"github.com/stormaaja/agent-notes/internal/search"
 	"github.com/stormaaja/agent-notes/internal/store"
 )
 
-type noteJSON struct {
-	ID          string    `json:"id"`
-	Title       string    `json:"title"`
-	Description string    `json:"description"`
-	Tags        []string  `json:"tags"`
-	Created     time.Time `json:"created"`
-	Updated     time.Time `json:"updated"`
-	Body        string    `json:"body,omitempty"`
-	Path        string    `json:"path"`
-	Score       *int      `json:"score,omitempty"`
-}
-
-func toJSON(s *store.Store, n note.Note, withBody bool) noteJSON {
-	j := noteJSON{
-		ID:          n.ID,
-		Title:       n.Title,
-		Description: n.Description,
-		Tags:        n.Tags,
-		Created:     n.Created,
-		Updated:     n.Updated,
-		Path:        s.Path(n.ID),
-	}
-	if j.Tags == nil {
-		j.Tags = []string{}
-	}
-	if withBody {
-		j.Body = n.Body
-	}
-	return j
+func toJSON(s *store.Store, n note.Note, withBody bool) notejson.Note {
+	return notejson.From(n, s.Path(n.ID), withBody)
 }
 
 func (r *runner) printNote(s *store.Store, n note.Note) error {
@@ -72,7 +46,7 @@ func (r *runner) printSaved(s *store.Store, verb string, n note.Note) error {
 
 func (r *runner) printResults(s *store.Store, results []search.Result, withScore, withBody bool) error {
 	if r.json {
-		out := make([]noteJSON, len(results))
+		out := make([]notejson.Note, len(results))
 		for i, res := range results {
 			out[i] = toJSON(s, res.Note, withBody)
 			if withScore {

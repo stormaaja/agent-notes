@@ -63,3 +63,13 @@ func NormalizeTags(tags []string) []string {
 	slices.Sort(out)
 	return slices.Compact(out)
 }
+
+// EditTags returns tags plus add minus remove, normalized. A tag in both add
+// and remove is removed.
+func EditTags(tags, add, remove []string) []string {
+	rm := NormalizeTags(remove)
+	return slices.DeleteFunc(NormalizeTags(append(slices.Clone(tags), add...)), func(t string) bool {
+		_, found := slices.BinarySearch(rm, t)
+		return found
+	})
+}

@@ -52,3 +52,24 @@ func TestNormalizeTags(t *testing.T) {
 		})
 	}
 }
+
+func TestEditTags(t *testing.T) {
+	tests := []struct {
+		name              string
+		tags, add, remove []string
+		want              []string
+	}{
+		{"nothing", []string{"b", "a"}, nil, nil, []string{"a", "b"}},
+		{"add normalized", []string{"a"}, []string{" B", "a"}, nil, []string{"a", "b"}},
+		{"remove case-insensitive", []string{"a", "b"}, nil, []string{"B "}, []string{"a"}},
+		{"remove wins over add", []string{"a"}, []string{"b"}, []string{"b"}, []string{"a"}},
+		{"nil", nil, nil, nil, []string{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := EditTags(tt.tags, tt.add, tt.remove); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("EditTags(%q, %q, %q) = %q, want %q", tt.tags, tt.add, tt.remove, got, tt.want)
+			}
+		})
+	}
+}
