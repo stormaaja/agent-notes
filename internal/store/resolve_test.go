@@ -30,13 +30,19 @@ func TestResolveDir(t *testing.T) {
 
 	withNotes := filepath.Join(root, "withnotes")
 	withNotesDeep := filepath.Join(withNotes, "x", "y")
-	mkdirs(t, withNotesDeep, filepath.Join(withNotes, ".notes"), filepath.Join(withNotes, "x", ".git"))
+	mkdirs(t, withNotesDeep, filepath.Join(withNotes, ".notes"), filepath.Join(withNotes, "x", ".notes"), filepath.Join(withNotes, ".git"))
 
 	notesFile := filepath.Join(root, "notesfile")
 	mkdirs(t, filepath.Join(notesFile, ".git"))
 	if err := os.WriteFile(filepath.Join(notesFile, ".notes"), nil, 0o644); err != nil {
 		t.Fatal(err)
 	}
+
+	home := filepath.Join(root, "home")
+	homeRepo := filepath.Join(home, "repo")
+	homeRepoDeep := filepath.Join(homeRepo, "pkg")
+	homeNoGit := filepath.Join(home, "scratch")
+	mkdirs(t, filepath.Join(home, ".notes"), filepath.Join(homeRepo, ".git"), homeRepoDeep, homeNoGit)
 
 	plain := filepath.Join(root, "plain")
 	mkdirs(t, plain)
@@ -48,9 +54,11 @@ func TestResolveDir(t *testing.T) {
 		{"flag relative to cwd", deep, "../notes", "/abs/env", filepath.Join(repo, "a", "notes")},
 		{"env absolute", deep, "", "/abs/env", "/abs/env"},
 		{"env relative to cwd", deep, "", "envnotes", filepath.Join(deep, "envnotes")},
-		{"existing .notes beats nearer git root", withNotesDeep, "", "", filepath.Join(withNotes, ".notes")},
+		{"nested .notes below git root wins", withNotesDeep, "", "", filepath.Join(withNotes, "x", ".notes")},
 		{"existing .notes in cwd", withNotes, "", "", filepath.Join(withNotes, ".notes")},
 		{".notes file is not a notes dir", notesFile, "", "", filepath.Join(notesFile, ".notes")},
+		{".notes above git root is ignored", homeRepoDeep, "", "", filepath.Join(homeRepo, ".notes")},
+		{".notes above cwd used outside git", homeNoGit, "", "", filepath.Join(home, ".notes")},
 		{"git dir root", deep, "", "", filepath.Join(repo, ".notes")},
 		{"git file root (worktree)", wtDeep, "", "", filepath.Join(worktree, ".notes")},
 		{"fallback to cwd", plain, "", "", filepath.Join(plain, ".notes")},
