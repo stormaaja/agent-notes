@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/stormaaja/agent-notes/internal/note"
+	"github.com/stormaaja/agent-notes/internal/search"
 	"github.com/stormaaja/agent-notes/internal/store"
 )
 
@@ -66,5 +67,36 @@ func (r *runner) printSaved(s *store.Store, verb string, n note.Note) error {
 		return r.printJSON(toJSON(s, n, true))
 	}
 	_, err := fmt.Fprintf(r.env.Stdout, "%s %s (%s)\n", verb, n.ID, s.Path(n.ID))
+	return err
+}
+
+func (r *runner) printResults(s *store.Store, results []search.Result, withScore, withBody bool) error {
+	if r.json {
+		out := make([]noteJSON, len(results))
+		for i, res := range results {
+			out[i] = toJSON(s, res.Note, withBody)
+			if withScore {
+				out[i].Score = &res.Score
+			}
+		}
+		return r.printJSON(out)
+	}
+	if len(results) == 0 {
+		_, err := fmt.Fprintln(r.env.Stdout, "No notes found.")
+		return err
+	}
+	var b strings.Builder
+	for _, res := range results {
+		n := res.Note
+		b.WriteString(n.ID + "  " + n.Title)
+		if len(n.Tags) > 0 {
+			b.WriteString("  [" + strings.Join(n.Tags, ", ") + "]")
+		}
+		b.WriteString("\n")
+		if n.Description != "" {
+			b.WriteString("    " + n.Description + "\n")
+		}
+	}
+	_, err := fmt.Fprint(r.env.Stdout, b.String())
 	return err
 }
