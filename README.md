@@ -21,6 +21,8 @@ agent working in it, can search and extend the same notes.
 go install github.com/stormaaja/agent-notes/cmd/agent-notes@latest
 ```
 
+Use `@vX.Y.Z` instead of `@latest` for a specific release.
+
 This needs Go 1.26 or newer (the `go` command fetches a newer toolchain if needed) and puts `agent-notes` in `$(go env GOPATH)/bin`.
 
 ## Quick start
@@ -81,7 +83,7 @@ practice, any command run anywhere inside a repository uses `<repo>/.notes`.
 ## Commands
 
 ```
-agent-notes [--dir PATH] [--json] <command> [flags] [args]
+agent-notes [--dir PATH] [--json] [--version] <command> [flags] [args]
 ```
 
 `--dir` and `--json` work before or after the command. Run `agent-notes help <command>` for
@@ -99,6 +101,7 @@ details.
 | `import-memory <dir> [--tag t]... [--dry-run]` | Import Claude Code memory files |
 | `instructions` | Print agent instructions for `CLAUDE.md` or `AGENTS.md` |
 | `mcp` | Run an MCP server on stdin and stdout (see [MCP server](#mcp-server)) |
+| `version` | Print the version (also `agent-notes --version`; see [Releasing](#releasing)) |
 
 Exit codes: `0` success, `1` error, `2` usage error, `3` note not found.
 
@@ -340,7 +343,40 @@ If the client cannot find `agent-notes`, use the full path to the binary, for ex
 ```sh
 go test ./... -race
 go vet ./...
+scripts/release_test.sh   # tests the release script in a throwaway clone
 ```
+
+### Releasing
+
+The current version is in the `VERSION` file (`X.Y.Z`); releases are tagged `vX.Y.Z`.
+
+```sh
+scripts/release.sh          # build bin/agent-notes at the current version
+scripts/release.sh build    # patch release: 1.2.3 -> 1.2.4
+scripts/release.sh minor    # 1.2.3 -> 1.3.0
+scripts/release.sh major    # 1.2.3 -> 2.0.0
+```
+
+With a bump type, the script refuses to run if the working tree has any staged, unstaged or
+untracked changes, if `VERSION` is malformed, or if the new tag already exists. It then runs
+`go vet ./...` and `go test ./...`, writes `VERSION`, builds `bin/agent-notes`, commits
+`Release vX.Y.Z` and creates the annotated tag `vX.Y.Z`. It never pushes; publish with:
+
+```sh
+git push --follow-tags
+```
+
+After that, `go install github.com/stormaaja/agent-notes/cmd/agent-notes@vX.Y.Z` installs the
+release.
+
+`agent-notes version` (or `--version`, `--json` for `{"version": "..."}`) prints the version,
+which the MCP server also reports. It is resolved as:
+
+1. the value set at build time with
+   `-ldflags "-X github.com/stormaaja/agent-notes/internal/version.version=X.Y.Z"`
+   (what `scripts/release.sh` does),
+2. else the module version recorded by `go install …@vX.Y.Z`, without the `v`,
+3. else `devel` (for example `go build` or `go run` from a checkout).
 
 ## License
 
