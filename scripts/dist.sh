@@ -28,6 +28,12 @@ die() {
 	exit 1
 }
 
+usage_error() {
+	echo "error: $*" >&2
+	usage >&2
+	exit 2
+}
+
 case ${1:-} in
 -h | --help)
 	usage
@@ -39,7 +45,7 @@ if [[ $# -ne 1 ]]; then
 	exit 2
 fi
 version=$1
-[[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.+-]+)?$ ]] || die "version must be X.Y.Z, got '$version'"
+[[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.+-]+)?$ ]] || usage_error "version must be X.Y.Z, got '$version'"
 
 cd "$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
 shopt -s nullglob
