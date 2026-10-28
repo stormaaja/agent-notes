@@ -3,11 +3,11 @@ package cli
 import (
 	"io"
 	"log/slog"
-	"runtime/debug"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/stormaaja/agent-notes/internal/mcpserver"
+	"github.com/stormaaja/agent-notes/internal/version"
 )
 
 var mcpCmd = command{
@@ -33,7 +33,7 @@ func runMCP(r *runner, args []string) error {
 		return err
 	}
 	logger := slog.New(slog.NewTextHandler(r.env.Stderr, nil))
-	server := mcpserver.New(s, version(), logger)
+	server := mcpserver.New(s, version.String(), logger)
 	err = server.Run(r.env.Context, &mcp.IOTransport{
 		Reader: io.NopCloser(r.env.Stdin),
 		Writer: nopWriteCloser{r.env.Stdout},
@@ -47,10 +47,3 @@ func runMCP(r *runner, args []string) error {
 type nopWriteCloser struct{ io.Writer }
 
 func (nopWriteCloser) Close() error { return nil }
-
-func version() string {
-	if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" {
-		return info.Main.Version
-	}
-	return "devel"
-}

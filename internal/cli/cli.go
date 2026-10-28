@@ -54,6 +54,7 @@ var commands = []command{
 	importMemoryCmd,
 	instructionsCmd,
 	mcpCmd,
+	versionCmd,
 }
 
 func lookup(name string) (command, bool) {
@@ -69,11 +70,12 @@ const globalHelp = `Global flags (accepted before or after the command):
   --dir PATH   notes directory (default: $AGENT_NOTES_DIR, the nearest .notes
                up to the git root, <git root>/.notes, or ./.notes)
   --json       print machine-readable JSON
+  --version    print the version and exit (before the command only)
 `
 
 func usage() string {
 	var b strings.Builder
-	b.WriteString("Usage: agent-notes [--dir PATH] [--json] <command> [flags] [args]\n\nCommands:\n")
+	b.WriteString("Usage: agent-notes [--dir PATH] [--json] [--version] <command> [flags] [args]\n\nCommands:\n")
 	for _, c := range commands {
 		fmt.Fprintf(&b, "  %-14s %s\n", c.name, c.summary)
 	}
@@ -140,10 +142,14 @@ func Run(args []string, env Env) int {
 
 func (r *runner) dispatch(args []string) error {
 	fs := r.flagSet("")
+	showVersion := fs.Bool("version", false, "")
 	if err := fs.Parse(args); err != nil {
 		return r.flagError("", err)
 	}
 	args = fs.Args()
+	if *showVersion {
+		return r.printVersion()
+	}
 	if len(args) == 0 {
 		return errNoCommand
 	}

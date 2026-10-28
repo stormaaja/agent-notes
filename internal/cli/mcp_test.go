@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/stormaaja/agent-notes/internal/version"
 )
 
 var mcpRequests = []string{
@@ -70,6 +72,12 @@ func TestMCP(t *testing.T) {
 		if r, ok := responses[id]; !ok || r.Error != nil {
 			t.Errorf("response %d = %+v, want a result", id, r)
 		}
+	}
+	var init struct {
+		ServerInfo struct{ Version string } `json:"serverInfo"`
+	}
+	if err := json.Unmarshal(responses[1].Result, &init); err != nil || init.ServerInfo.Version != version.String() {
+		t.Errorf("initialize serverInfo.version = %q (%v), want %q", init.ServerInfo.Version, err, version.String())
 	}
 	if !strings.Contains(string(responses[2].Result), `"notes_search"`) {
 		t.Errorf("tools/list = %s", responses[2].Result)
