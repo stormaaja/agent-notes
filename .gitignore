@@ -34,3 +34,6 @@ go.work.sum
 
 # Release builds
 bin/
+
+# Release archives built by scripts/dist.sh
+dist/

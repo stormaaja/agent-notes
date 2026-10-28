@@ -1,0 +1,59 @@
+# Publishes a GitHub release with prebuilt binaries when a vX.Y.Z tag is pushed
+# (scripts/release.sh creates the tag; push it with git push --follow-tags).
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: Check tag matches VERSION
+        id: version
+        run: |
+          version=${GITHUB_REF_NAME#v}
+          file_version=$(<VERSION)
+          if [[ $version != "$file_version" ]]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match VERSION ($file_version)"
+            exit 1
+          fi
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test -race ./...
+
+      - name: Extract release notes
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: scripts/changelog.sh extract "$VERSION" >notes.md
+
+      - name: Build archives
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: scripts/dist.sh "$VERSION"
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: >-
+          gh release create "$GITHUB_REF_NAME" dist/*
+          --title "$GITHUB_REF_NAME"
+          --notes-file notes.md
+          --verify-tag
