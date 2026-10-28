@@ -62,7 +62,8 @@ with these assets, built by `scripts/dist.sh X.Y.Z` (run it locally to inspect t
 
 - `agent-notes_X.Y.Z_<os>_<arch>.tar.gz` for `linux` and `darwin`, and
   `agent-notes_X.Y.Z_windows_<arch>.zip` (binary `agent-notes.exe`), each for `amd64` and
-  `arm64`, containing the binary, `README.md`, `LICENSE` and `CHANGELOG.md`;
+  `arm64`, containing the binary, `README.md`, `LICENSE`, `CHANGELOG.md` and the `docs/`
+  pages (in a `docs/` directory next to the binary);
 - `checksums.txt` with the SHA-256 sums of the archives.
 
 After that, `go install github.com/stormaaja/agent-notes/cmd/agent-notes@vX.Y.Z` also installs
