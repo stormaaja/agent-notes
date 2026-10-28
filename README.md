@@ -68,8 +68,8 @@ Then tell your agents to use the notes: see [Using it with agents](docs/agent-in
 
 ## Contributing
 
-See [docs/development.md](docs/development.md) for the rules every change follows (test-driven
-development, Conventional Commits).
+Read [AGENTS.md](AGENTS.md) for the rules every change follows (test-driven development,
+Conventional Commits) and [docs/development.md](docs/development.md) for the details.
 
 ## License
 
