@@ -26,6 +26,7 @@ go vet ./...
 gofmt -l .                  # must print nothing
 scripts/changelog_test.sh   # when touching scripts/
 scripts/release_test.sh     # when touching scripts/
+scripts/dist_test.sh        # when touching scripts/ or docs/
 ```
 
 ## Test-driven development (required)

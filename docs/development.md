@@ -40,6 +40,7 @@ go vet ./...
 gofmt -l .                # must print nothing
 scripts/changelog_test.sh # tests the changelog script in a throwaway git repository
 scripts/release_test.sh   # tests the release script in a throwaway clone
+scripts/dist_test.sh      # tests the release archives in a throwaway clone
 ```
 
 The shell tests create their throwaway repositories under `$TMPDIR` (default `/tmp`) and

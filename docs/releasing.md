@@ -66,6 +66,8 @@ with these assets, built by `scripts/dist.sh X.Y.Z` (run it locally to inspect t
   pages (in a `docs/` directory next to the binary);
 - `checksums.txt` with the SHA-256 sums of the archives.
 
+`scripts/dist_test.sh` checks the archives, their contents and checksums in a throwaway clone.
+
 After that, `go install github.com/stormaaja/agent-notes/cmd/agent-notes@vX.Y.Z` also installs
 the release.
 
