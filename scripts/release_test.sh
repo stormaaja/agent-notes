@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Tests scripts/release.sh in a throwaway clone; the real repository is never touched.
-# The release.sh under test is the one in this working tree, committed into the clone.
+# The release.sh and changelog.sh under test are the ones in this working tree, committed
+# into the clone.
 set -euo pipefail
 
 repo=$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)
@@ -15,10 +16,25 @@ git config user.email "release-test@example.invalid"
 git config commit.gpgsign false
 git config tag.gpgsign false
 mkdir -p scripts
-cp "$repo/scripts/release.sh" scripts/release.sh
+cp "$repo/scripts/release.sh" "$repo/scripts/changelog.sh" scripts/
 cp "$repo/.gitignore" .gitignore
-chmod +x scripts/release.sh
+chmod +x scripts/release.sh scripts/changelog.sh
 printf '1.2.3\n' >VERSION
+cat >CHANGELOG.md <<'EOF'
+# Changelog
+
+## [Unreleased]
+
+### Added
+
+- Test change.
+
+### Fixed
+
+## [1.2.3] - 2026-01-01
+
+- Previous release.
+EOF
 git add -A
 git commit -qm "Test fixture"
 git tag | xargs -r git tag -d >/dev/null
@@ -58,13 +74,15 @@ expect_out() {
 	fi
 }
 
-# expect_unchanged WHAT: HEAD is the fixture commit, there are no tags and VERSION is 1.2.3.
+# expect_unchanged WHAT: HEAD is the fixture commit, there are no tags, VERSION is 1.2.3
+# and CHANGELOG.md is as committed.
 expect_unchanged() {
 	local what=$1
 	[[ $(git rev-parse HEAD) == "$fixture" ]] || fail "$what: HEAD moved"
 	[[ -z $(git tag) ]] || fail "$what: tags created: $(git tag | tr '\n' ' ')"
 	[[ $(cat VERSION) == 1.2.3 ]] || fail "$what: VERSION changed to $(cat VERSION)"
-	pass "$what: no commit, tag or VERSION change"
+	git diff --quiet HEAD -- CHANGELOG.md || fail "$what: CHANGELOG.md changed"
+	pass "$what: no commit, tag, VERSION or CHANGELOG.md change"
 }
 
 reset_fixture() {
@@ -120,6 +138,28 @@ expect_out "VERSION" "malformed VERSION"
 [[ -z $(git tag) && $(git log -1 --format=%s) == "Bad version" ]] || fail "malformed VERSION: committed or tagged"
 reset_fixture
 
+# --- empty Unreleased section aborts before running tests ---
+cat >CHANGELOG.md <<'EOF'
+# Changelog
+
+## [Unreleased]
+
+### Added
+
+## [1.2.3] - 2026-01-01
+
+- Previous release.
+EOF
+git commit -qam "Empty Unreleased"
+empty=$(git rev-parse HEAD)
+run minor
+expect_code 1 "empty Unreleased"
+expect_out "add release notes under ## [Unreleased] in CHANGELOG.md first" "empty Unreleased"
+[[ $out != *"go test"* ]] || fail "empty Unreleased: ran tests before checking the changelog"
+[[ $(git rev-parse HEAD) == "$empty" && -z $(git tag) && $(cat VERSION) == 1.2.3 ]] || fail "empty Unreleased: repo changed"
+[[ -z $(git status --porcelain) ]] || fail "empty Unreleased: tree dirty: $(git status --short)"
+reset_fixture
+
 # --- failing tests abort before anything changes ---
 mkdir -p internal/broken
 cat >internal/broken/broken_test.go <<'EOF'
@@ -163,7 +203,14 @@ check_release() {
 	[[ $(cat VERSION) == "$new" ]] || fail "$type: VERSION = $(cat VERSION), want $new"
 	[[ $(git rev-parse HEAD^) == "$fixture" ]] || fail "$type: expected exactly one new commit"
 	[[ $(git log -1 --format=%B) == "Release v$new" ]] || fail "$type: commit message = $(git log -1 --format=%B)"
-	[[ $(git diff --name-only HEAD^ HEAD) == VERSION ]] || fail "$type: commit changes $(git diff --name-only HEAD^ HEAD | tr '\n' ' ')"
+	[[ $(git diff --name-only HEAD^ HEAD | tr '\n' ' ') == "CHANGELOG.md VERSION " ]] || fail "$type: commit changes $(git diff --name-only HEAD^ HEAD | tr '\n' ' ')"
+	grep -qxF "## [$new] - $(date +%F)" CHANGELOG.md || fail "$type: CHANGELOG.md has no '## [$new] - $(date +%F)' heading"
+	if scripts/changelog.sh has-unreleased 2>/dev/null; then
+		fail "$type: Unreleased section is not empty after the release"
+	fi
+	local notes
+	notes=$(scripts/changelog.sh extract "$new" 2>&1) || fail "$type: changelog.sh extract $new failed: $notes"
+	[[ $notes == $'### Added\n\n- Test change.' ]] || fail "$type: release notes ="$'\n'"$notes"
 	[[ $(git cat-file -t "v$new" 2>/dev/null) == tag ]] || fail "$type: v$new is not an annotated tag"
 	[[ $(git rev-parse "v$new^{commit}" 2>/dev/null) == $(git rev-parse HEAD) ]] || fail "$type: v$new does not point at HEAD"
 	[[ $(git tag -l --format='%(contents:subject)' "v$new") == "Release v$new" ]] || fail "$type: tag message"

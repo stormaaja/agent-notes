@@ -16,9 +16,11 @@ With a bump type, cuts a release:
   minor   X.Y.Z -> X.(Y+1).0
   major   X.Y.Z -> (X+1).0.0
 
-The working tree must be clean (no staged, unstaged or untracked changes).
-Runs go vet and go test, writes VERSION, builds bin/agent-notes, commits
-"Release vX.Y.Z" and creates the annotated tag vX.Y.Z. Never pushes.
+The working tree must be clean (no staged, unstaged or untracked changes) and
+CHANGELOG.md must have release notes under "## [Unreleased]". Runs go vet and
+go test, writes VERSION, builds bin/agent-notes, turns the Unreleased notes into
+"## [X.Y.Z] - <today>", commits VERSION and CHANGELOG.md as "Release vX.Y.Z"
+and creates the annotated tag vX.Y.Z. Never pushes.
 EOF
 }
 
@@ -90,6 +92,10 @@ if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
 	die "tag $tag already exists"
 fi
 
+if ! scripts/changelog.sh has-unreleased; then
+	die "add release notes under ## [Unreleased] in CHANGELOG.md first"
+fi
+
 echo "Releasing $tag (was $current)"
 echo "Running go vet ./..."
 go vet ./... || die "go vet failed; nothing was changed"
@@ -101,7 +107,11 @@ if ! build "$new"; then
 	git checkout -- VERSION
 	die "build failed; VERSION restored"
 fi
-git add VERSION
+if ! scripts/changelog.sh release "$new" "$(date +%F)"; then
+	git checkout -- VERSION CHANGELOG.md
+	die "updating CHANGELOG.md failed; VERSION and CHANGELOG.md restored"
+fi
+git add VERSION CHANGELOG.md
 git commit -q -m "Release $tag"
 git tag -a "$tag" -m "Release $tag"
 
