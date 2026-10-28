@@ -25,6 +25,18 @@ Use `@vX.Y.Z` instead of `@latest` for a specific release.
 
 This needs Go 1.26 or newer (the `go` command fetches a newer toolchain if needed) and puts `agent-notes` in `$(go env GOPATH)/bin`.
 
+Without Go, download a prebuilt binary for Linux, macOS or Windows (amd64 or arm64) from the
+[releases page](https://github.com/stormaaja/agent-notes/releases), for example:
+
+```sh
+version=X.Y.Z  # without the "v"
+curl -fLO "https://github.com/stormaaja/agent-notes/releases/download/v$version/agent-notes_${version}_linux_amd64.tar.gz"
+curl -fLO "https://github.com/stormaaja/agent-notes/releases/download/v$version/checksums.txt"
+sha256sum --ignore-missing -c checksums.txt
+tar -xzf "agent-notes_${version}_linux_amd64.tar.gz" agent-notes
+install agent-notes ~/.local/bin/
+```
+
 ## Quick start
 
 ```sh
@@ -343,12 +355,22 @@ If the client cannot find `agent-notes`, use the full path to the binary, for ex
 ```sh
 go test ./... -race
 go vet ./...
+scripts/changelog_test.sh # tests the changelog script on fixture files
 scripts/release_test.sh   # tests the release script in a throwaway clone
 ```
 
 ### Releasing
 
-The current version is in the `VERSION` file (`X.Y.Z`); releases are tagged `vX.Y.Z`.
+The current version is in the `VERSION` file (`X.Y.Z`); releases are tagged `vX.Y.Z`. Changes
+are recorded in [CHANGELOG.md](CHANGELOG.md) in the
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format.
+
+1. As you make changes, add notes under `## [Unreleased]` in `CHANGELOG.md` (under `### Added`,
+   `### Changed`, `### Fixed`, …).
+2. Cut the release, for example `scripts/release.sh minor`.
+3. Publish it with `git push --follow-tags`.
+4. The [release workflow](.github/workflows/release.yml) builds the binaries and publishes a
+   GitHub release with the version's changelog notes.
 
 ```sh
 scripts/release.sh          # build bin/agent-notes at the current version
@@ -358,16 +380,27 @@ scripts/release.sh major    # 1.2.3 -> 2.0.0
 ```
 
 With a bump type, the script refuses to run if the working tree has any staged, unstaged or
-untracked changes, if `VERSION` is malformed, or if the new tag already exists. It then runs
-`go vet ./...` and `go test ./...`, writes `VERSION`, builds `bin/agent-notes`, commits
-`Release vX.Y.Z` and creates the annotated tag `vX.Y.Z`. It never pushes; publish with:
+untracked changes, if `VERSION` is malformed, if the new tag already exists, or if the
+Unreleased section of `CHANGELOG.md` has no notes. It then runs `go vet ./...` and
+`go test ./...`, writes `VERSION`, builds `bin/agent-notes`, moves the Unreleased notes into a
+`## [X.Y.Z] - YYYY-MM-DD` section (dated today, empty subheadings dropped) under a fresh empty
+Unreleased section, commits `VERSION` and `CHANGELOG.md` as `Release vX.Y.Z` and creates the
+annotated tag `vX.Y.Z`. It never pushes.
 
-```sh
-git push --follow-tags
-```
+When the `vX.Y.Z` tag is pushed, the workflow checks that it matches `VERSION`, runs
+`go vet` and `go test -race`, and publishes a release with these assets, built by
+`scripts/dist.sh X.Y.Z` (run it locally to inspect the output in `dist/`):
 
-After that, `go install github.com/stormaaja/agent-notes/cmd/agent-notes@vX.Y.Z` installs the
-release.
+- `agent-notes_X.Y.Z_<os>_<arch>.tar.gz` for `linux` and `darwin`, and
+  `agent-notes_X.Y.Z_windows_<arch>.zip` (binary `agent-notes.exe`), each for `amd64` and
+  `arm64`, containing the binary, `README.md`, `LICENSE` and `CHANGELOG.md`;
+- `checksums.txt` with the SHA-256 sums of the archives.
+
+After that, `go install github.com/stormaaja/agent-notes/cmd/agent-notes@vX.Y.Z` also installs
+the release.
+
+`scripts/changelog.sh` does the changelog work: `extract X.Y.Z` prints a version's notes,
+`has-unreleased` checks for unreleased notes, and `release X.Y.Z YYYY-MM-DD` stamps them.
 
 `agent-notes version` (or `--version`, `--json` for `{"version": "..."}`) prints the version,
 which the MCP server also reports. It is resolved as:
