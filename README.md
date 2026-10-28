@@ -355,40 +355,66 @@ If the client cannot find `agent-notes`, use the full path to the binary, for ex
 ```sh
 go test ./... -race
 go vet ./...
-scripts/changelog_test.sh # tests the changelog script on fixture files
+scripts/changelog_test.sh # tests the changelog script in a throwaway git repository
 scripts/release_test.sh   # tests the release script in a throwaway clone
 ```
 
+### Commit messages
+
+Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/):
+`type(scope)!: description`, for example `feat(cli): add the export command` or
+`fix(store): keep file permissions on update`. The changelog and the release version are
+generated from them (see [Releasing](#releasing)), so pick the type that describes the change
+for users.
+
 ### Releasing
 
-The current version is in the `VERSION` file (`X.Y.Z`); releases are tagged `vX.Y.Z`. Changes
-are recorded in [CHANGELOG.md](CHANGELOG.md) in the
-[Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format.
+The current version is in the `VERSION` file (`X.Y.Z`); releases are tagged `vX.Y.Z`.
+[CHANGELOG.md](CHANGELOG.md) ([Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format)
+and the GitHub release notes are generated from the commit messages, so there is nothing to
+write by hand:
 
-1. As you make changes, add notes under `## [Unreleased]` in `CHANGELOG.md` (under `### Added`,
-   `### Changed`, `### Fixed`, …).
-2. Cut the release, for example `scripts/release.sh minor`.
-3. Publish it with `git push --follow-tags`.
-4. The [release workflow](.github/workflows/release.yml) builds the binaries and publishes a
-   GitHub release with the version's changelog notes.
+```sh
+scripts/release.sh auto       # cut the release the commits call for
+git push --follow-tags        # publish it
+```
+
+Commit types and where they land in the changelog:
+
+| Commit | Changelog section | `auto` bump |
+| --- | --- | --- |
+| `feat!:`, `fix(cli)!:`, … or a `BREAKING CHANGE:` footer (any type) | Breaking changes | major |
+| `feat:` | Added | minor |
+| `fix:` | Fixed | patch |
+| `perf:` | Changed | patch |
+| `docs`, `test`, `chore`, `ci`, `build`, `style`, `refactor`, `revert` | — | — |
+
+Each entry is the commit description with a link to the commit, prefixed with the scope if
+there is one (`- **cli:** Add the export command (abc1234)`). Merge commits and messages that are
+not Conventional Commits are left out. The changelog covers the commits since the previous
+`vX.Y.Z` tag; if none of them is a feat, fix, perf or breaking change, there is nothing to
+release and the script stops.
 
 ```sh
 scripts/release.sh          # build bin/agent-notes at the current version
+scripts/release.sh auto     # bump by the commits: major, minor or patch
 scripts/release.sh build    # patch release: 1.2.3 -> 1.2.4
 scripts/release.sh minor    # 1.2.3 -> 1.3.0
 scripts/release.sh major    # 1.2.3 -> 2.0.0
 ```
 
 With a bump type, the script refuses to run if the working tree has any staged, unstaged or
-untracked changes, if `VERSION` is malformed, if the new tag already exists, or if the
-Unreleased section of `CHANGELOG.md` has no notes. It then runs `go vet ./...` and
-`go test ./...`, writes `VERSION`, builds `bin/agent-notes`, moves the Unreleased notes into a
-`## [X.Y.Z] - YYYY-MM-DD` section (dated today, empty subheadings dropped) under a fresh empty
-Unreleased section, commits `VERSION` and `CHANGELOG.md` as `Release vX.Y.Z` and creates the
-annotated tag `vX.Y.Z`. It never pushes.
+untracked changes, if `VERSION` is malformed, if the new tag already exists, or if there are
+no releasable commits since the last tag. It then runs `go vet ./...` and `go test ./...`,
+writes `VERSION`, builds `bin/agent-notes`, adds a `## [X.Y.Z] - YYYY-MM-DD` section (dated
+today) generated from the commits to `CHANGELOG.md`, commits `VERSION` and `CHANGELOG.md` as
+`chore(release): vX.Y.Z`, creates the annotated tag `vX.Y.Z` and prints the new changelog
+section. It never pushes.
 
 When the `vX.Y.Z` tag is pushed, the workflow checks that it matches `VERSION`, runs
-`go vet` and `go test -race`, and publishes a release with these assets, built by
+`go vet` and `go test -race`, and publishes a release whose notes are the version's changelog
+section plus a "Full changelog" link to the changes since the previous tag, with these
+assets, built by
 `scripts/dist.sh X.Y.Z` (run it locally to inspect the output in `dist/`):
 
 - `agent-notes_X.Y.Z_<os>_<arch>.tar.gz` for `linux` and `darwin`, and
@@ -399,8 +425,10 @@ When the `vX.Y.Z` tag is pushed, the workflow checks that it matches `VERSION`, 
 After that, `go install github.com/stormaaja/agent-notes/cmd/agent-notes@vX.Y.Z` also installs
 the release.
 
-`scripts/changelog.sh` does the changelog work: `extract X.Y.Z` prints a version's notes,
-`has-unreleased` checks for unreleased notes, and `release X.Y.Z YYYY-MM-DD` stamps them.
+`scripts/changelog.sh` does the changelog work: `generate` and `bump-type` preview the notes
+and the bump for the commits since the last tag, `release X.Y.Z YYYY-MM-DD` adds the version
+section, `extract X.Y.Z` prints it and `notes X.Y.Z` prints the GitHub release notes (the
+section plus a link to the full list of changes since the previous tag).
 
 `agent-notes version` (or `--version`, `--json` for `{"version": "..."}`) prints the version,
 which the MCP server also reports. It is resolved as:
