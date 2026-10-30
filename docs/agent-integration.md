@@ -21,19 +21,19 @@ agent-notes instructions >> CLAUDE.md
 
 ### Install the skill (optional)
 
-[`integrations/claude-code/SKILL.md`](../integrations/claude-code/SKILL.md) is a Claude Code
-skill with the same workflow. It triggers when you work in a repository with `.notes/`, when
-you ask Claude to remember or note something, and when you look up project conventions.
-Install it for yourself or for one repository:
+[`integrations/claude-code/agent-notes/SKILL.md`](../integrations/claude-code/agent-notes/SKILL.md)
+is a Claude Code skill with the same workflow. It triggers when you work in a repository with
+`.notes/`, when you ask Claude to remember or note something, and when you look up project
+conventions. Install it for yourself or for one repository:
 
 ```sh
 # for all your projects
-mkdir -p ~/.claude/skills/agent-notes
-cp integrations/claude-code/SKILL.md ~/.claude/skills/agent-notes/SKILL.md
+mkdir -p ~/.claude/skills
+cp -r integrations/claude-code/agent-notes ~/.claude/skills/
 
 # or for one repository, committed so teammates get it too
-mkdir -p .claude/skills/agent-notes
-cp integrations/claude-code/SKILL.md .claude/skills/agent-notes/SKILL.md
+mkdir -p .claude/skills
+cp -r integrations/claude-code/agent-notes .claude/skills/
 ```
 
 ### Migrate existing memories

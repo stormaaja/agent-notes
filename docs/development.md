@@ -19,7 +19,7 @@
 | `internal/mcpserver` | Notes store exposed as Model Context Protocol tools |
 | `internal/memory` | Reading Claude Code memory files for `import-memory` |
 | `internal/version` | Version reporting (build-time ldflags, module version, `devel`) |
-| `integrations/claude-code` | Claude Code skill ([`SKILL.md`](../integrations/claude-code/SKILL.md)) |
+| `integrations` | Agent skills as `<tool>/agent-notes/SKILL.md`: [Claude Code](../integrations/claude-code/agent-notes/SKILL.md); `skills_test.go` checks their frontmatter |
 | `scripts/` | `release.sh`, `changelog.sh`, `dist.sh` and their `*_test.sh` tests |
 | `.github/workflows` | Release workflow for pushed `vX.Y.Z` tags (see [Releasing](releasing.md)) |
 | `docs/` | These docs |
@@ -97,6 +97,6 @@ describes the change for users.
 ## Dependencies
 
 Prefer the standard library. The current direct dependencies are
-[`gopkg.in/yaml.v3`](https://pkg.go.dev/gopkg.in/yaml.v3) for note and memory frontmatter and the
+[`gopkg.in/yaml.v3`](https://pkg.go.dev/gopkg.in/yaml.v3) for note, memory and skill frontmatter and the
 [MCP Go SDK](https://github.com/modelcontextprotocol/go-sdk) for the MCP server. A new
 dependency needs a reason the standard library cannot cover, stated in the commit message.
