@@ -74,6 +74,50 @@ Memories often hold personal preferences (`user` type) that do not belong in a s
 repository. Use `--dry-run`, review the notes, and delete what should stay private before
 committing.
 
+## pi
+
+[pi](https://pi.dev) reads `AGENTS.md` (and `CLAUDE.md`) from the working directory and its
+parents, so add the instructions there:
+
+```sh
+agent-notes instructions >> AGENTS.md
+```
+
+### Install the skill (optional)
+
+[`integrations/pi/agent-notes/SKILL.md`](../integrations/pi/agent-notes/SKILL.md) is a pi
+skill with the same workflow, tailored to pi: it runs the CLI with the bash tool, prefers the
+`notes_*` tools when the [MCP server](mcp.md#pi) is configured, and tells pi to report which
+notes it added or updated. pi loads only the skill's name and description at startup and reads
+the rest when a task matches. Copy the `agent-notes` directory into a skills folder:
+
+```sh
+# for all your projects
+mkdir -p ~/.pi/agent/skills
+cp -r integrations/pi/agent-notes ~/.pi/agent/skills/
+
+# or for one repository, committed so teammates get it too
+mkdir -p .pi/skills
+cp -r integrations/pi/agent-notes .pi/skills/
+```
+
+pi also finds skills in `~/.agents/skills/` and `.agents/skills/`, and in the paths listed
+under `skills` in `~/.pi/agent/settings.json` or `.pi/settings.json`, for example the skill in
+a clone of this repository:
+
+```json
+{
+  "skills": ["/path/to/agent-notes/integrations/pi/agent-notes"]
+}
+```
+
+Run `/skill:agent-notes <keywords>` to load the skill on demand; pi searches the notes for the
+keywords and summarizes what it finds.
+
+pi runs tools without asking for permission. The skill tells it never to store secrets in
+notes, never to delete notes unless you asked, and to show you what it added or updated, but
+review `git diff .notes` before committing.
+
 ## Other agents
 
 Any agent that can run shell commands can use `agent-notes`. Put the instructions where the

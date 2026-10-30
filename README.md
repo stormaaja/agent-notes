@@ -3,7 +3,7 @@
 Shared knowledge notes for people and coding agents, stored as plain Markdown in your
 repository.
 
-Coding agents such as Claude Code learn things while they work: conventions, gotchas,
+Coding agents such as Claude Code and pi learn things while they work: conventions, gotchas,
 decisions, how to run things. Usually that knowledge goes into memory on one laptop, so your
 teammates, your other machines and other agents never see it. `agent-notes` keeps it in a
 `.notes/` folder that you commit with the code. Everyone who clones the repository, and every
@@ -12,8 +12,8 @@ agent working in it, can search and extend the same notes.
 - Notes are readable Markdown files with YAML frontmatter, so they are easy to review in diffs.
 - One small CLI with human-readable output and `--json` for agents.
 - A built-in MCP server, so agents can use notes as native tools.
-- Ready-made agent instructions, a Claude Code skill, and an importer for existing Claude Code
-  memories.
+- Ready-made agent instructions, skills for Claude Code and pi, and an importer for existing
+  Claude Code memories.
 
 ## Install
 
@@ -56,9 +56,9 @@ Then tell your agents to use the notes: see [Using it with agents](docs/agent-in
 
 - [Note format](docs/note-format.md): the note file format and where notes live.
 - [Commands](docs/commands.md): command reference, examples, search ranking and JSON output.
-- [Using it with agents](docs/agent-integration.md): agent instructions, the Claude Code
-  skill, importing Claude Code memories, other agents.
-- [MCP server](docs/mcp.md): the MCP tools and how to set them up in Claude Code and other
+- [Using it with agents](docs/agent-integration.md): agent instructions, the Claude Code and
+  pi skills, importing Claude Code memories, other agents.
+- [MCP server](docs/mcp.md): the MCP tools and how to set them up in Claude Code, pi and other
   clients.
 - [Development](docs/development.md): repository layout, building, testing, TDD workflow,
   commit conventions and dependencies.

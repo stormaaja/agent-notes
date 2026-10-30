@@ -45,6 +45,27 @@ The project scope writes a `.mcp.json` file to commit with the repository:
 }
 ```
 
+## pi
+
+[pi](https://pi.dev) has built-in MCP support. Add the server to `~/.pi/agent/mcp.json` for
+all your projects, or to `.pi/mcp.json` in the repository to share it with teammates (pi uses
+a project file only after you trust the project):
+
+```json
+{
+  "mcpServers": {
+    "agent-notes": {
+      "command": "agent-notes",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+You can also add servers with `pi mcp add`; see pi's documentation for its arguments. Check
+the connection with `pi mcp list` or `/mcp` inside pi. The
+[pi skill](agent-integration.md#pi) uses the `notes_*` tools when they are available.
+
 ## Other MCP clients
 
 Any client that launches stdio servers works. The usual configuration is a command, its

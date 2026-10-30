@@ -19,7 +19,7 @@
 | `internal/mcpserver` | Notes store exposed as Model Context Protocol tools |
 | `internal/memory` | Reading Claude Code memory files for `import-memory` |
 | `internal/version` | Version reporting (build-time ldflags, module version, `devel`) |
-| `integrations` | Agent skills as `<tool>/agent-notes/SKILL.md`: [Claude Code](../integrations/claude-code/agent-notes/SKILL.md); `skills_test.go` checks their frontmatter |
+| `integrations` | Agent skills as `<tool>/agent-notes/SKILL.md`: [Claude Code](../integrations/claude-code/agent-notes/SKILL.md), [pi](../integrations/pi/agent-notes/SKILL.md); `skills_test.go` checks their frontmatter |
 | `scripts/` | `release.sh`, `changelog.sh`, `dist.sh` and their `*_test.sh` tests |
 | `.github/workflows` | Release workflow for pushed `vX.Y.Z` tags (see [Releasing](releasing.md)) |
 | `docs/` | These docs |

@@ -14,7 +14,7 @@ in a repository's `.notes/` folder. Details for contributors: [docs/development.
 - `internal/mcpserver`: MCP tools over a store
 - `internal/memory`: Claude Code memory file parsing
 - `internal/version`: version reporting
-- `integrations/<tool>/agent-notes`: agent skills (`claude-code`), checked by `skills_test.go`
+- `integrations/<tool>/agent-notes`: agent skills (`claude-code`, `pi`), checked by `skills_test.go`
 - `scripts/`: `release.sh`, `changelog.sh`, `dist.sh`, tested by `*_test.sh`
 - `docs/`: user and contributor docs
 

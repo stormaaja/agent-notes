@@ -16,7 +16,7 @@ import (
 var skillName = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 
 func TestSkills(t *testing.T) {
-	for _, tool := range []string{"claude-code"} {
+	for _, tool := range []string{"claude-code", "pi"} {
 		t.Run(tool, func(t *testing.T) {
 			path := filepath.Join(tool, "agent-notes", "SKILL.md")
 			if _, err := os.Stat(path); err != nil {
