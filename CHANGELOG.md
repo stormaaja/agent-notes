@@ -7,6 +7,12 @@ do not edit it by hand.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-10-30
+
+### Added
+
+- Add pi skill for agent-notes ([a6507db](https://github.com/stormaaja/agent-notes/commit/a6507db824214d23a3f416b1a50eb94944d3ffab))
+
 ## [0.1.0] - 2026-10-28
 
 ### Added
